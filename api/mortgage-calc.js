@@ -29,6 +29,7 @@ module.exports = async function handler(req, res) {
   const propertyAddress = String(data.propertyAddress ?? "").trim();
   const propertyYear = String(data.propertyYear ?? "").trim();
   const propertyCost = Number(data.propertyCost ?? 0);
+  const titleInsurance = data.titleInsurance !== false;
 
   if (!creditValue || !birthDate || !firstName || !lastName || !phone || !email || !address || !propertyAddress) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -44,7 +45,7 @@ module.exports = async function handler(req, res) {
     bank,
     propertyInsurance: true,
     lifeInsurance: true,
-    titleInsurance: false,
+    titleInsurance,
     buildingType,
   };
   const create = await apiCall("POST", `${INSSMART_BASE}/product-mortgage/contracts`, createBody, token);
