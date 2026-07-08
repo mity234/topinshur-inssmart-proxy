@@ -1,4 +1,4 @@
-const { apiCall, getToken, enrichOffers, offersComplete, isRateLimited, INSSMART_BASE, applyCors } = require("../lib/inssmart");
+const { apiCall, getToken, enrichOffers, offersComplete, isRateLimited, INSSMART_BASE, applyCors, getKBMInfo } = require("../lib/inssmart");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,6 +18,8 @@ module.exports = async function handler(req, res) {
   const passportSeries = String(data.passportSeries ?? "").trim();
   const passportNumber = String(data.passportNumber ?? "").trim();
   const passportIssue = String(data.passportIssue ?? "").trim();
+  const passportIssuePoint = String(data.passportIssuePoint ?? "").trim();
+  const passportIssuePointCode = String(data.passportIssuePointCode ?? "").trim();
   const phone = String(data.phone ?? "").trim();
   const email = String(data.email ?? "").trim();
   const address = String(data.address ?? "").trim();
@@ -48,6 +50,19 @@ module.exports = async function handler(req, res) {
   const contractId = create.body?.id;
   if (!contractId) return res.status(502).json({ ok: false, error: "contract_create_failed", detail: create });
 
+  // Auto-lookup the driver's real KBM from RSA for a more accurate premium —
+  // best-effort: if the lookup fails or finds nothing, Inssmart falls back
+  // to its own starting KBM, so we don't block the calculation on this.
+  const kbmInfo = await getKBMInfo(token, {
+    plate,
+    firstName,
+    lastName,
+    patronymic,
+    birthDate,
+    driverLicenseSeries,
+    driverLicenseNumber,
+  }).catch(() => null);
+
   const validFrom = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const validTo = new Date(Date.now() + (7 + 365) * 86400000).toISOString().slice(0, 10);
   const rusPassport = `${passportSeries}${passportNumber}`;
@@ -75,6 +90,8 @@ module.exports = async function handler(req, res) {
     insurantPassportSeries: passportSeries,
     insurantRusPassportNumber: rusPassport,
     insurantPassportIssue: passportIssue,
+    insurantPassportIssuePoint: passportIssuePoint,
+    insurantPassportIssuePointCode: passportIssuePointCode,
     insurantPassportForeign: false,
     insurantFirstName: firstName,
     insurantLastName: lastName,
@@ -91,6 +108,7 @@ module.exports = async function handler(req, res) {
         driverLicenseSeries,
         driverLicenseNumber,
         driverLicenseForeign: false,
+        ...(kbmInfo?.found ? { kbm: kbmInfo.factor } : {}),
       },
     ],
   };
@@ -116,6 +134,7 @@ module.exports = async function handler(req, res) {
     ok: true,
     car,
     contractId,
+    kbmInfo,
     complete: offersComplete(state, offers),
     offers: enrichOffers(offers),
   });
