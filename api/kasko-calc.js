@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
     data.previousPolicyCompany !== null && data.previousPolicyCompany !== undefined && data.previousPolicyCompany !== ""
       ? Number(data.previousPolicyCompany)
       : null;
+  const manualVehicle = data.manualVehicle && data.manualVehicle.modelId ? data.manualVehicle : null;
 
   if (!plate || !firstName || !lastName || !phone || !email) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -41,15 +42,33 @@ module.exports = async function handler(req, res) {
   const token = await getToken();
   if (!token) return res.status(502).json({ ok: false, error: "auth_failed" });
 
-  const carInfoRes = await apiCall(
-    "GET",
-    `${INSSMART_BASE}/dictionary/carInfo?${new URLSearchParams({ query: plate, version: 4, contractType: 4000 })}`,
-    null,
-    token,
-  );
-  const car = carInfoRes.body;
-  if (isRateLimited(car)) return res.status(429).json({ ok: false, error: "rate_limited", detail: car });
-  if (!car || !car.carModelId) return res.status(422).json({ ok: false, error: "vehicle_not_found", detail: car });
+  let car;
+  if (manualVehicle) {
+    // User-entered fallback for when the plate isn't in Inssmart's carInfo
+    // dictionary — same shape as a real carInfo response so the rest of the
+    // flow (patchBody, response display) doesn't need to branch further.
+    car = {
+      carModelId: manualVehicle.modelId,
+      carMarkName: manualVehicle.markTitle ?? "",
+      carModelName: manualVehicle.modelTitle ?? "",
+      vinNumber: manualVehicle.vin ?? null,
+      year: Number(manualVehicle.year) || 2020,
+      powerInHP: Number(manualVehicle.powerHp) || 100,
+      stsNumber: manualVehicle.docNumber ?? "0000000000",
+      stsDate: manualVehicle.docDate ?? null,
+      documentType: Number(manualVehicle.docType) || 2,
+    };
+  } else {
+    const carInfoRes = await apiCall(
+      "GET",
+      `${INSSMART_BASE}/dictionary/carInfo?${new URLSearchParams({ query: plate, version: 4, contractType: 4000 })}`,
+      null,
+      token,
+    );
+    car = carInfoRes.body;
+    if (isRateLimited(car)) return res.status(429).json({ ok: false, error: "rate_limited", detail: car });
+    if (!car || !car.carModelId) return res.status(422).json({ ok: false, error: "vehicle_not_found", detail: car });
+  }
 
   const create = await apiCall("POST", `${INSSMART_BASE}/product-kasko/contracts`, {}, token);
   const contractId = create.body?.id;
@@ -74,14 +93,14 @@ module.exports = async function handler(req, res) {
     vehicleRegNumber: plate,
     vehicleNoRegNumber: false,
     vehicleTypeOfNumber: 0,
-    vehicleDocumentType: 2,
+    vehicleDocumentType: car.documentType ?? 2,
     vehicleDocumentNumber: car.stsNumber ?? "0000000000",
-    vehicleDocumentDate: car.stsDate ? car.stsDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    vehicleDocumentDate: car.stsDate ? String(car.stsDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
     vehicleYear: car.year ?? 2020,
     vehiclePower: car.powerInHP ?? 100,
     vehicleMileage: 30000,
     vehicleCost: Number(data.vehicleCost ?? 2000000),
-    vehiclePurchaseDate: car.stsDate ? car.stsDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    vehiclePurchaseDate: car.stsDate ? String(car.stsDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
     vehicleHasAntiTheftSystem: false,
     isCredit: false,
     insurantPhone: phone,
