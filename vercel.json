@@ -5,6 +5,8 @@
     "api/mortgage-calc.js": { "maxDuration": 60 },
     "api/offers-status.js": { "maxDuration": 20 },
     "api/address-suggest.js": { "maxDuration": 15 },
-    "api/passport-issue-suggest.js": { "maxDuration": 15 }
+    "api/passport-issue-suggest.js": { "maxDuration": 15 },
+    "api/car-mark-suggest.js": { "maxDuration": 15 },
+    "api/car-model-suggest.js": { "maxDuration": 15 }
   }
 }
