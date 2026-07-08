@@ -1,0 +1,6 @@
+{
+  "name": "topinshur-inssmart-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inssmart API proxy for topinshur.ru — moved off the reg.ru hosting IP after it got rate-limited from testing."
+}

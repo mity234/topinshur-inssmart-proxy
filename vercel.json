@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/kasko-calc.js": { "maxDuration": 60 },
+    "api/osago-calc.js": { "maxDuration": 60 },
+    "api/mortgage-calc.js": { "maxDuration": 60 },
+    "api/offers-status.js": { "maxDuration": 20 },
+    "api/address-suggest.js": { "maxDuration": 15 }
+  }
+}
