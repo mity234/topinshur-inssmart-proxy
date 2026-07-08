@@ -15,10 +15,11 @@ module.exports = async function handler(req, res) {
 
   const poll = await apiCall("GET", `${INSSMART_BASE}/product-${product}/contracts/${contractId}/offers`, null, token);
   const rawOffers = poll.body?.offers ?? [];
+  const state = poll.body?.state ?? 0;
 
   return res.status(200).json({
     ok: true,
-    complete: offersComplete(rawOffers),
+    complete: offersComplete(state, rawOffers),
     offers: enrichOffers(rawOffers),
   });
 };

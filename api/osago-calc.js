@@ -103,18 +103,20 @@ module.exports = async function handler(req, res) {
   await apiCall("POST", `${INSSMART_BASE}/product-osago/contracts/${contractId}/offers`, {}, token);
 
   let offers = [];
+  let state = 0;
   for (let i = 0; i < 4; i++) {
     await sleep(3000);
     const poll = await apiCall("GET", `${INSSMART_BASE}/product-osago/contracts/${contractId}/offers`, null, token);
     offers = poll.body?.offers ?? [];
-    if (offersComplete(offers)) break;
+    state = poll.body?.state ?? 0;
+    if (offersComplete(state, offers)) break;
   }
 
   return res.status(200).json({
     ok: true,
     car,
     contractId,
-    complete: offersComplete(offers),
+    complete: offersComplete(state, offers),
     offers: enrichOffers(offers),
   });
 };
