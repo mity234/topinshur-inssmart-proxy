@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
   const address = String(data.address ?? "").trim();
   const driverLicenseSeries = String(data.driverLicenseSeries ?? "").trim();
   const driverLicenseNumber = String(data.driverLicenseNumber ?? "").trim();
+  const driverLicenseIssue = String(data.driverLicenseIssue ?? "").trim();
   const experienceDate = String(data.experienceDate ?? "").trim();
 
   if (!plate || !firstName || !lastName || !phone || !email || !address) {
