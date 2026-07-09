@@ -48,6 +48,8 @@ module.exports = async function handler(req, res) {
       : -1;
   const deductibleType = Number(data.deductibleType ?? 1);
   const gap = !!data.gap;
+  const isCredit = !!data.isCredit;
+  const bankBIK = isCredit && data.bankBIK ? String(data.bankBIK).trim() : null;
 
   if (!plate || !firstName || !lastName || !phone || !email) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -116,7 +118,8 @@ module.exports = async function handler(req, res) {
     vehicleCost: Number(data.vehicleCost ?? 2000000),
     vehiclePurchaseDate: car.stsDate ? String(car.stsDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
     vehicleHasAntiTheftSystem: false,
-    isCredit: false,
+    isCredit,
+    ...(isCredit && bankBIK ? { bankBIK } : {}),
     insurantPhone: phone,
     insurantEmail: email,
     coverageProgram: 1,
