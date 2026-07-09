@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
       ? Number(data.previousPolicyCompany)
       : null;
   const manualVehicle = data.manualVehicle && data.manualVehicle.modelId ? data.manualVehicle : null;
+  const additionalDrivers = Array.isArray(data.additionalDrivers) ? data.additionalDrivers : [];
 
   if (!plate || !firstName || !lastName || !phone || !email) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -139,6 +140,24 @@ module.exports = async function handler(req, res) {
         driverLicenseIssue,
         experienceDate,
       },
+      ...additionalDrivers.map((d) => {
+        const dLicenseSeries = String(d.driverLicenseSeries ?? "").trim();
+        const dLicenseNumber = String(d.driverLicenseNumber ?? "").trim();
+        return {
+          isMarried: false,
+          driverType: 3,
+          firstName: String(d.firstName ?? "").trim(),
+          lastName: String(d.lastName ?? "").trim(),
+          patronymic: String(d.patronymic ?? "").trim(),
+          birthDate: String(d.birthDate ?? "").trim(),
+          gender: Number(d.gender ?? 1),
+          driverLicenseSeries: dLicenseSeries,
+          driverLicenseNumber: dLicenseNumber,
+          driverRusLicenseNumber: `${dLicenseSeries} ${dLicenseNumber}`.trim(),
+          driverLicenseIssue: String(d.driverLicenseIssue ?? "").trim(),
+          experienceDate: String(d.experienceDate ?? "").trim(),
+        };
+      }),
     ],
   };
 

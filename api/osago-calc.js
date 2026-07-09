@@ -28,6 +28,7 @@ module.exports = async function handler(req, res) {
   const driverLicenseIssue = String(data.driverLicenseIssue ?? "").trim();
   const experienceDate = String(data.experienceDate ?? "").trim();
   const manualVehicle = data.manualVehicle && data.manualVehicle.modelId ? data.manualVehicle : null;
+  const additionalDrivers = Array.isArray(data.additionalDrivers) ? data.additionalDrivers : [];
 
   if (!plate || !firstName || !lastName || !phone || !email || !address) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -70,18 +71,46 @@ module.exports = async function handler(req, res) {
   const contractId = create.body?.id;
   if (!contractId) return res.status(502).json({ ok: false, error: "contract_create_failed", detail: create });
 
-  // Auto-lookup the driver's real KBM from RSA for a more accurate premium —
-  // best-effort: if the lookup fails or finds nothing, Inssmart falls back
-  // to its own starting KBM, so we don't block the calculation on this.
-  const kbmInfo = await getKBMInfo(token, {
-    plate,
-    firstName,
-    lastName,
-    patronymic,
-    birthDate,
-    driverLicenseSeries,
-    driverLicenseNumber,
-  }).catch(() => null);
+  // All drivers on the policy — the policyholder (whose fields are top-level)
+  // plus any extra drivers added on the form.
+  const allDrivers = [
+    { firstName, lastName, patronymic, birthDate, driverLicenseSeries, driverLicenseNumber, experienceDate },
+    ...additionalDrivers.map((d) => ({
+      firstName: String(d.firstName ?? "").trim(),
+      lastName: String(d.lastName ?? "").trim(),
+      patronymic: String(d.patronymic ?? "").trim(),
+      birthDate: String(d.birthDate ?? "").trim(),
+      driverLicenseSeries: String(d.driverLicenseSeries ?? "").trim(),
+      driverLicenseNumber: String(d.driverLicenseNumber ?? "").trim(),
+      experienceDate: String(d.experienceDate ?? "").trim(),
+    })),
+  ];
+
+  // Auto-lookup each driver's real KBM from RSA for a more accurate premium —
+  // best-effort: if a lookup fails or finds nothing for someone, that's fine,
+  // Inssmart falls back to its own starting KBM for them.
+  const driversKbm = await Promise.all(
+    allDrivers.map(async (d) => ({
+      name: `${d.lastName} ${d.firstName}`.trim(),
+      kbmInfo: await getKBMInfo(token, {
+        plate,
+        firstName: d.firstName,
+        lastName: d.lastName,
+        patronymic: d.patronymic,
+        birthDate: d.birthDate,
+        driverLicenseSeries: d.driverLicenseSeries,
+        driverLicenseNumber: d.driverLicenseNumber,
+      }).catch(() => null),
+    })),
+  );
+
+  // A restricted-driver-list OSAGO policy is priced off the WORST (highest)
+  // KBM among everyone listed, not each driver's own — RSA tariff rule, not
+  // an Inssmart quirk. We compute it ourselves and apply it to every driver
+  // record rather than relying on the upstream engine to aggregate it.
+  const foundFactors = driversKbm.map((d) => d.kbmInfo?.factor).filter((f) => typeof f === "number");
+  const appliedKbmFactor = foundFactors.length > 0 ? Math.max(...foundFactors) : null;
+  const kbmInfo = driversKbm[0]?.kbmInfo ?? null;
 
   const validFrom = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const validTo = new Date(Date.now() + (7 + 365) * 86400000).toISOString().slice(0, 10);
@@ -118,19 +147,17 @@ module.exports = async function handler(req, res) {
     insurantPatronymic: patronymic,
     insurantBirthDate: birthDate,
     ownerIsInsurant: true,
-    drivers: [
-      {
-        firstName,
-        lastName,
-        patronymic,
-        birthDate,
-        experienceDate,
-        driverLicenseSeries,
-        driverLicenseNumber,
-        driverLicenseForeign: false,
-        ...(kbmInfo?.found ? { kbm: kbmInfo.factor } : {}),
-      },
-    ],
+    drivers: allDrivers.map((d) => ({
+      firstName: d.firstName,
+      lastName: d.lastName,
+      patronymic: d.patronymic,
+      birthDate: d.birthDate,
+      experienceDate: d.experienceDate,
+      driverLicenseSeries: d.driverLicenseSeries,
+      driverLicenseNumber: d.driverLicenseNumber,
+      driverLicenseForeign: false,
+      ...(appliedKbmFactor != null ? { kbm: appliedKbmFactor } : {}),
+    })),
   };
 
   const patch = await apiCall("PATCH", `${INSSMART_BASE}/product-osago/contracts/${contractId}`, patchBody, token);
@@ -155,6 +182,8 @@ module.exports = async function handler(req, res) {
     car,
     contractId,
     kbmInfo,
+    driversKbm,
+    appliedKbmFactor,
     complete: offersComplete(state, offers),
     offers: enrichOffers(offers),
   });
