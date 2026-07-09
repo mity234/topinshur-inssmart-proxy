@@ -137,7 +137,7 @@ module.exports = async function handler(req, res) {
     ownerIsInsurant: true,
     contactEmail: email,
     contactPhone: phone,
-    options: { deductibleAmounts: [deductibleAmount], deductibleType, gap },
+    options: { deductibleAmounts: [deductibleAmount], deductibleType, ...(gap ? { gap: true } : {}) },
     drivers: [
       {
         isMarried: false,
