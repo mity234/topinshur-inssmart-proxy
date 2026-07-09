@@ -35,6 +35,17 @@ module.exports = async function handler(req, res) {
       : null;
   const manualVehicle = data.manualVehicle && data.manualVehicle.modelId ? data.manualVehicle : null;
   const additionalDrivers = Array.isArray(data.additionalDrivers) ? data.additionalDrivers : [];
+  // Repair type(s): 1 = у дилера, 4 = на СТОА по направлению страховой. Requesting
+  // both by default gets offers from companies that only support one or the other —
+  // requesting just [1] (the old hardcoded value) excluded a lot of companies.
+  const repairOptions =
+    Array.isArray(data.repairOptions) && data.repairOptions.length > 0 ? data.repairOptions.map(Number) : [1, 4];
+  const deductibleAmount =
+    data.deductibleAmount !== undefined && data.deductibleAmount !== null && data.deductibleAmount !== ""
+      ? Number(data.deductibleAmount)
+      : -1;
+  const deductibleType = Number(data.deductibleType ?? 1);
+  const gap = !!data.gap;
 
   if (!plate || !firstName || !lastName || !phone || !email) {
     return res.status(422).json({ ok: false, error: "validation" });
@@ -85,7 +96,7 @@ module.exports = async function handler(req, res) {
     period: 12,
     usePreviousPolicy,
     previousPolicyCompany,
-    repairOptions: [1],
+    repairOptions,
     isNewVehicle: false,
     purpose: 1,
     multidrive: false,
@@ -124,7 +135,7 @@ module.exports = async function handler(req, res) {
     ownerIsInsurant: true,
     contactEmail: email,
     contactPhone: phone,
-    options: { deductibleAmounts: [-1], deductibleType: 1 },
+    options: { deductibleAmounts: [deductibleAmount], deductibleType, gap },
     drivers: [
       {
         isMarried: false,
