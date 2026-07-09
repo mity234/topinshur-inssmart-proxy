@@ -35,11 +35,13 @@ module.exports = async function handler(req, res) {
       : null;
   const manualVehicle = data.manualVehicle && data.manualVehicle.modelId ? data.manualVehicle : null;
   const additionalDrivers = Array.isArray(data.additionalDrivers) ? data.additionalDrivers : [];
-  // Repair type(s): 1 = у дилера, 4 = на СТОА по направлению страховой. Requesting
-  // both by default gets offers from companies that only support one or the other —
-  // requesting just [1] (the old hardcoded value) excluded a lot of companies.
+  // Repair type(s): 1 = у дилера, 4 = на СТОА по направлению страховой. Tested
+  // live: requesting BOTH at once makes most companies fail outright ("Предложение
+  // от СК не получено") — only Ингосстрах handled it gracefully (returned two
+  // separate offers). [1] alone reliably gets offers from 19-22 companies, so
+  // that's the default; the UI lets the user opt into [4] or both if they want.
   const repairOptions =
-    Array.isArray(data.repairOptions) && data.repairOptions.length > 0 ? data.repairOptions.map(Number) : [1, 4];
+    Array.isArray(data.repairOptions) && data.repairOptions.length > 0 ? data.repairOptions.map(Number) : [1];
   const deductibleAmount =
     data.deductibleAmount !== undefined && data.deductibleAmount !== null && data.deductibleAmount !== ""
       ? Number(data.deductibleAmount)
