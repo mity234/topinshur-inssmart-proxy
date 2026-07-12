@@ -9,8 +9,8 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "method_not_allowed" });
 
-  if (!process.env.ALFASTRAKH_USERNAME || !process.env.ALFASTRAKH_PASSWORD) {
-    return res.status(500).json({ ok: false, error: "not_configured", detail: "ALFASTRAKH_USERNAME/PASSWORD not set" });
+  if (!process.env.ALFASTRAKH_USERNAME || !(process.env.ALFASTRAKH_TEST_PASSWORD || process.env.ALFASTRAKH_PROD_PASSWORD)) {
+    return res.status(500).json({ ok: false, error: "not_configured", detail: "ALFASTRAKH_USERNAME/TEST_PASSWORD not set" });
   }
 
   const data = req.body || {};
